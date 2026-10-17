@@ -42,7 +42,7 @@ sebastian/supervisora/arrancar.sh                                    # el de cla
 CLAUDE_CONFIG_DIR=~/.claude-trabajo sebastian/supervisora/arrancar.sh # el de claude-trabajo
 ```
 
-Arranca `claude remote-control` con la configuración que tenga `CLAUDE_CONFIG_DIR` desde la carpeta `supervisora` (que tiene su CLAUDE.md con el rol), quitando la variable de squeezer y marcándose para que los hooks no la vigilen a ella misma. Conéctate desde el móvil y dile "arranca".
+Abre una sesión normal de Claude en la terminal, conectada también en remoto con el nombre "Sebastian", desde la carpeta `supervisora` (que tiene su CLAUDE.md con el rol) y con la configuración que tenga `CLAUDE_CONFIG_DIR`. Quita la variable de squeezer, se marca para que los hooks no la vigilen a ella misma y nada más abrirse repasa tus sesiones. Puedes hablarle desde la terminal o desde el móvil.
 
 ## Qué le puedes decir
 
