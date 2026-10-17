@@ -5,7 +5,24 @@ settings.json.antes-de-*
 *.antes-de-sebastian.*
 *.antes-de-quitar-sebastian.*
 .kj/
-.karajan/
+.claude/*.lock
+.karajan/*
+# Contrato del método que hereda quien clone el repo
+!.karajan/review-gate
+!.karajan/hooks/
+.karajan/hooks/*
+!.karajan/hooks/pre-commit
+!.karajan/hooks/commit-msg
+!.karajan/hooks/pre-push
+!.karajan/hooks/post-merge
+!.karajan/hooks/prepare-commit-msg
+!.karajan/adrs/
+!.karajan/supervisor-provenance.json
+!.karajan/policy.yml
+!.karajan/policy-anchor.json
+!.karajan/supervisor-signers.json
+!.karajan/rules.yml
+!.karajan/security-level.json
 .karajan/identity.local.yml
 
 # Karajan Code
