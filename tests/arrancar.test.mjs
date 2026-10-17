@@ -40,12 +40,12 @@ describe("arrancar.sh", () => {
     return JSON.parse(fs.readFileSync(salida, "utf8"));
   };
 
-  it("arranca remote-control en modo same-dir sin preguntar", () => {
-    expect(arrancar().args).toEqual(["remote-control", "--spawn=same-dir"]);
+  it("abre una sesión en la terminal conectada en remoto y le dice que arranque", () => {
+    expect(arrancar().args).toEqual(["--rc", "Sebastian", "arranca"]);
   });
 
   it("pasa los argumentos extra a claude", () => {
-    expect(arrancar(["--verbose"]).args).toEqual(["remote-control", "--spawn=same-dir", "--verbose"]);
+    expect(arrancar(["--verbose"]).args).toEqual(["--rc", "Sebastian", "arranca", "--verbose"]);
   });
 
   it("se marca como supervisora, quita ANTHROPIC_BASE_URL y arranca en su carpeta", () => {
