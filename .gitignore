@@ -1,0 +1,14 @@
+node_modules/
+*.tmp
+*.entregando
+settings.json.antes-de-*
+*.antes-de-sebastian.*
+*.antes-de-quitar-sebastian.*
+.kj/
+.karajan/
+.karajan/identity.local.yml
+
+# Karajan Code
+.agent/
+.scannerwork/
+.reviews/
