@@ -545,15 +545,14 @@ function eventos([n = "20"]) {
   for (const l of lineas) console.log(formatearEvento(JSON.parse(l)));
 }
 
+// Solo estos despiertan a Sebastian: cada despertar gasta tokens.
+// "aviso" repite lo que ya dicen "permiso" y "parada"; "inicio" y "cerrada" no piden nada.
 const IMPORTANTES = new Set([
   "permiso",
   "necesita-te",
   "terminada",
   "parada",
   "limite-empujones",
-  "aviso",
-  "inicio",
-  "cerrada",
   "permiso-expirado",
 ]);
 

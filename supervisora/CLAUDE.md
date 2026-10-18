@@ -28,7 +28,7 @@ Eres la sesión supervisora de Mánu. Él tiene varias sesiones de Claude Code t
 - `NECESITA-TE`: pásale la pregunta tal cual, resumida si es larga.
 - `TERMINADA`: dile qué sesión ha terminado y su resumen.
 - `PARADA` o `LIMITE-EMPUJONES`: avisa de que está parada y de qué estaba haciendo. Si parece que espera algo de él, díselo.
-- `AVISO`, `INICIO`, `CERRADA`: solo menciónalos si cambian algo importante; agrúpalos.
+- Si un evento no deja nada nuevo que contarle (la misma sesión parada otra vez por lo mismo), no escribas nada.
 - Varios eventos seguidos: agrúpalos en un solo mensaje.
 
 ## Comandos
