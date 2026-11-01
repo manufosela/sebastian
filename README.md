@@ -1,14 +1,14 @@
 # sebastian
 
-Una sesión supervisora de Claude Code (en remoto, sin squeezer) que vigila al resto de sesiones (en local, con squeezer), te avisa y les lleva tus respuestas. No decide por ti.
+Sebastian es un supervisor: una sesión de Claude Code (en remoto, sin squeezer) que vigila al resto de sesiones (en local, con squeezer), te avisa y les lleva tus respuestas. No decide por ti.
 
 ## Cómo funciona
 
 - Cada sesión, mediante hooks, anota su estado y sus eventos en `<config de Claude>/sebastian` (`~/.claude/sebastian`, o `$CLAUDE_CONFIG_DIR/sebastian` si arrancas Claude con otra configuración).
 - Hay un Sebastian por cada configuración de Claude: el de `claude` solo ve las sesiones arrancadas con `claude`, y el de un alias como `claude-trabajo` (`CLAUDE_CONFIG_DIR=~/.claude-trabajo claude`) solo ve las suyas.
-- La supervisora lee ese estado y los transcripts de las sesiones, y te avisa.
+- Sebastian lee ese estado y los transcripts de las sesiones, y te avisa.
 - Tus mensajes van a un buzón por sesión; un hook se los entrega a Claude en su siguiente paso o cuando va a pararse.
-- Los permisos pasan por la supervisora: la sesión espera tu sí o no (3 minutos por defecto); si no contestas, la pregunta aparece en su terminal como siempre.
+- Los permisos pasan por Sebastian: la sesión espera tu sí o no (3 minutos por defecto); si no contestas, la pregunta aparece en su terminal como siempre.
 - Modo "no parar": si una sesión se para sin preguntarte nada, se le dice que siga (máximo 5 veces seguidas). Se para de verdad cuando termina con `[TERMINADO]`, cuando te pregunta algo o cuando escribe `[NECESITO-A-MÁNU]`.
 
 ## Instalación (una vez)
@@ -35,14 +35,14 @@ En cada terminal, de una en una:
 
 Comprueba que se ha registrado con `sebastian lista`. Pon nombres fáciles: `sebastian nombre pagos-a1b2 pagos`.
 
-## Arrancar la supervisora
+## Arrancar Sebastian
 
 ```bash
-sebastian/supervisora/arrancar.sh                                    # el de claude
-CLAUDE_CONFIG_DIR=~/.claude-trabajo sebastian/supervisora/arrancar.sh # el de claude-trabajo
+sebastian/supervisor/arrancar.sh                                    # el de claude
+CLAUDE_CONFIG_DIR=~/.claude-trabajo sebastian/supervisor/arrancar.sh # el de claude-trabajo
 ```
 
-Abre una sesión normal de Claude en la terminal, conectada también en remoto con el nombre "Sebastian", desde la carpeta `supervisora` (que tiene su CLAUDE.md con el rol) y con la configuración que tenga `CLAUDE_CONFIG_DIR`. Quita la variable de squeezer, se marca para que los hooks no la vigilen a ella misma y nada más abrirse repasa tus sesiones. Puedes hablarle desde la terminal o desde el móvil.
+Abre una sesión normal de Claude en la terminal, conectada también en remoto con el nombre "Sebastian", desde la carpeta `supervisor` (que tiene su CLAUDE.md con el rol) y con la configuración que tenga `CLAUDE_CONFIG_DIR`. Quita la variable de squeezer, se marca para que los hooks no lo vigilen a él mismo y nada más abrirse repasa tus sesiones. Puedes hablarle desde la terminal o desde el móvil.
 
 ## Qué le puedes decir
 

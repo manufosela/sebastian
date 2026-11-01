@@ -29,6 +29,16 @@ describe("helpers de test", () => {
     expect(fs.existsSync(path.join(entorno.dir, "sesiones", "abc123.json"))).toBe(true);
   });
 
+  it("con SEBASTIAN_ROL=supervisor el hook no registra al propio Sebastian", async () => {
+    const r = await runHook(
+      "SessionStart",
+      { session_id: "seb1", cwd: "/tmp/supervisor" },
+      { env: { ...entorno.env, SEBASTIAN_ROL: "supervisor" } }
+    );
+    expect(r.code).toBe(0);
+    expect(fs.existsSync(path.join(entorno.dir, "sesiones", "seb1.json"))).toBe(false);
+  });
+
   it("limpiar() borra todo lo temporal", () => {
     const { raiz } = entorno;
     entorno.limpiar();
