@@ -1,4 +1,4 @@
-// sebastian personal / sebastian <nombre>: arranca el Sebastian de cada configuración de Claude.
+// sebastian arrancar: abre el único Sebastian, que ve las sesiones de todas las configuraciones.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const CLI = fileURLToPath(new URL("../sebastian.mjs", import.meta.url));
 
-describe("sebastian <configuración>", () => {
+describe("sebastian arrancar", () => {
   let home;
   let bin;
   let salida;
@@ -40,8 +40,8 @@ describe("sebastian <configuración>", () => {
     });
   const leerSalida = () => JSON.parse(fs.readFileSync(salida, "utf8"));
 
-  it("personal arranca Sebastian con ~/.claude aunque el entorno traiga otra configuración", () => {
-    const r = sebastian(["personal"], { CLAUDE_CONFIG_DIR: path.join(home, ".claude-trabajo") });
+  it("arranca Sebastian con ~/.claude aunque el entorno traiga otra configuración", () => {
+    const r = sebastian(["arrancar"], { CLAUDE_CONFIG_DIR: path.join(home, ".claude-trabajo") });
     expect(r.status).toBe(0);
     expect(leerSalida()).toEqual({
       args: ["--rc", "Sebastian", "arranca"],
@@ -50,16 +50,12 @@ describe("sebastian <configuración>", () => {
     });
   });
 
-  it("otro nombre arranca Sebastian con ~/.claude-<nombre>", () => {
-    const r = sebastian(["trabajo"]);
-    expect(r.status).toBe(0);
-    expect(leerSalida().config).toBe(path.join(home, ".claude-trabajo"));
-  });
-
-  it("si no existe ~/.claude-<nombre> falla sin arrancar nada", () => {
-    const r = sebastian(["noexiste"]);
-    expect(r.status).toBe(1);
-    expect(r.stderr).toContain(".claude-noexiste");
+  it("ya no hay un Sebastian por configuración: un comando desconocido falla sin arrancar nada", () => {
+    for (const viejo of ["personal", "trabajo"]) {
+      const r = sebastian([viejo]);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain(`No conozco "${viejo}"`);
+    }
     expect(fs.existsSync(salida)).toBe(false);
   });
 });
