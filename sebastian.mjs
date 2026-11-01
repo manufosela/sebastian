@@ -411,11 +411,38 @@ function rutaSettings() {
   return variable("SEBASTIAN_SETTINGS") ?? path.join(CONFIG_CLAUDE, "settings.json");
 }
 
+// Configuraciones de Claude que cubre Sebastian: lista explícita en ~/.sebastian/config.json.
+const F_CONFIG = path.join(DIR, "config.json");
+
+function configuraciones() {
+  const lista = leerJSON(F_CONFIG)?.configuraciones;
+  if (!Array.isArray(lista) || lista.length === 0)
+    throw new Error(
+      `Falta la lista de configuraciones en ${F_CONFIG}, por ejemplo:\n{ "configuraciones": ["~/.claude", "~/.claude-trabajo"] }`
+    );
+  const rutas = lista.map((c) => path.resolve(String(c).replace(/^~(?=$|\/)/, os.homedir())));
+  const faltan = rutas.filter((r) => !fs.existsSync(r));
+  if (faltan.length) throw new Error(`No existen estas configuraciones de ${F_CONFIG}: ${faltan.join(", ")}`);
+  return rutas;
+}
+
+// Con --todas, el settings.json de cada configuración; sin él, el de la actual.
+function settingsDestino(args) {
+  if (!args.includes("--todas")) return [rutaSettings()];
+  return configuraciones().map((c) => path.join(c, "settings.json"));
+}
+
 function instalar(args) {
-  const f = rutaSettings();
+  const todas = args.includes("--todas");
+  for (const f of settingsDestino(args)) instalarEn(f, { ver: args.includes("--ver"), cabecera: todas });
+}
+
+function desinstalar(args) {
+  for (const f of settingsDestino(args)) desinstalarEn(f);
+}
+
+function instalarEn(f, { ver, cabecera }) {
   const actual = leerJSON(f, {});
-  const copia = `${f}.antes-de-sebastian.${Date.now()}`;
-  if (fs.existsSync(f)) fs.copyFileSync(f, copia);
   const nuevo = quitarHooks(actual);
   nuevo.hooks = nuevo.hooks || {};
   for (const [ev, timeout] of HOOKS) {
@@ -425,10 +452,13 @@ function instalar(args) {
       hooks: [{ type: "command", command: `node "${ESTE_FICHERO}" hook ${ev}`, timeout }],
     });
   }
-  if (args.includes("--ver")) {
+  if (ver) {
+    if (cabecera) console.log(`# ${f}`);
     console.log(JSON.stringify(nuevo.hooks, null, 2));
     return;
   }
+  const copia = `${f}.antes-de-sebastian.${Date.now()}`;
+  if (fs.existsSync(f)) fs.copyFileSync(f, copia);
   fs.mkdirSync(path.dirname(f), { recursive: true });
   escribirJSON(f, nuevo);
   console.log(`Hooks de sebastian instalados en ${f}`);
@@ -448,9 +478,8 @@ function quitarHooks(cfg) {
   return c;
 }
 
-function desinstalar() {
-  const f = rutaSettings();
-  if (!fs.existsSync(f)) return console.log("No hay settings.json.");
+function desinstalarEn(f) {
+  if (!fs.existsSync(f)) return console.log(`No hay ${f}.`);
   fs.copyFileSync(f, `${f}.antes-de-quitar-sebastian.${Date.now()}`);
   escribirJSON(f, quitarHooks(leerJSON(f, {})));
   console.log(`Hooks de sebastian quitados de ${f}`);
@@ -674,8 +703,9 @@ const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, 
 
   sebastian personal              arranca Sebastian con tu configuración de claude (~/.claude)
   sebastian <nombre>              arranca el Sebastian de ~/.claude-<nombre>
-  sebastian instalar [--ver]     añade los hooks a ~/.claude/settings.json (con copia)
-  sebastian desinstalar           los quita
+  sebastian instalar [--todas] [--ver]  añade los hooks a ~/.claude/settings.json (con copia);
+                                  con --todas, a cada configuración de ~/.sebastian/config.json
+  sebastian desinstalar [--todas] los quita
   sebastian lista [--todas]       sesiones y su estado
   sebastian ver <sesión> [n]      últimos n mensajes de una sesión (12 por defecto)
   sebastian decir <sesión|todas> ...  deja un mensaje tuyo en su buzón
@@ -696,7 +726,7 @@ async function main() {
   const comandos = {
     hook: () => hook(args[0]),
     instalar: () => instalar(args),
-    desinstalar,
+    desinstalar: () => desinstalar(args),
     lista: () => lista(args),
     ver: () => ver(args),
     decir: () => decir(args),
