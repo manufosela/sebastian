@@ -4,8 +4,8 @@ Sebastian es un supervisor: una sesión de Claude Code (en remoto, sin squeezer)
 
 ## Cómo funciona
 
-- Cada sesión, mediante hooks, anota su estado y sus eventos en `<config de Claude>/sebastian` (`~/.claude/sebastian`, o `$CLAUDE_CONFIG_DIR/sebastian` si arrancas Claude con otra configuración).
-- Hay un Sebastian por cada configuración de Claude: el de `claude` solo ve las sesiones arrancadas con `claude`, y el de un alias como `claude-trabajo` (`CLAUDE_CONFIG_DIR=~/.claude-trabajo claude`) solo ve las suyas.
+- Cada sesión, mediante hooks, anota su estado y sus eventos en `~/.sebastian`, con la configuración de Claude que use (`claude` o un alias como `claude-trabajo`, que es `CLAUDE_CONFIG_DIR=~/.claude-trabajo claude`). `sebastian lista` muestra la cuenta de cada una.
+- Si venías de una versión anterior, `sebastian migrar` trae las sesiones de `~/.claude/sebastian` y `~/.claude-*/sebastian` sin borrar nada.
 - Sebastian lee ese estado y los transcripts de las sesiones, y te avisa.
 - Tus mensajes van a un buzón por sesión; un hook se los entrega a Claude en su siguiente paso o cuando va a pararse.
 - Los permisos pasan por Sebastian: la sesión espera tu sí o no (3 minutos por defecto); si no contestas, la pregunta aparece en su terminal como siempre.
@@ -68,13 +68,14 @@ sebastian noparar <sesión|todas> [on|off]
 sebastian nombre <sesión> <nombre>
 sebastian eventos [n]
 sebastian vigilar
+sebastian migrar
 ```
 
 ## Ajustes
 
 - `SEBASTIAN_PERM_ESPERA`: segundos que espera un permiso tu respuesta remota (180).
 - `SEBASTIAN_MAX_EMPUJONES`: veces seguidas que se empuja a una sesión en modo no parar (5).
-- `SEBASTIAN_DIR`: carpeta de estado (`<config de Claude>/sebastian`).
+- `SEBASTIAN_DIR`: carpeta de estado (`~/.sebastian`).
 - `SEBASTIAN_SETTINGS`: settings.json donde instalar los hooks (`<config de Claude>/settings.json`).
 
 Las variables se leen al ejecutar el hook, así que deben estar en el entorno con el que arrancas cada sesión.

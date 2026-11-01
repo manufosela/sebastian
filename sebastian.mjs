@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // sebastian: Sebastian, el supervisor, hace de proxy entre tú y tus sesiones de Claude Code.
-// Sin dependencias. Estado en <config de Claude>/sebastian (o $SEBASTIAN_DIR).
-// La config de Claude es $CLAUDE_CONFIG_DIR o ~/.claude: un Sebastian por cada una.
+// Sin dependencias. Estado común en ~/.sebastian (o $SEBASTIAN_DIR) para todas las
+// configuraciones de Claude ($CLAUDE_CONFIG_DIR o ~/.claude): cada sesión anota su cuenta.
 //
 // Dos usos:
 //   sebastian hook <Evento>        lo llaman los hooks de Claude Code (stdin JSON)
@@ -16,7 +16,8 @@ import { fileURLToPath } from "node:url";
 // Una variable vacía cuenta como no definida.
 const variable = (nombre) => process.env[nombre] || undefined;
 const CONFIG_CLAUDE = variable("CLAUDE_CONFIG_DIR") ?? path.join(os.homedir(), ".claude");
-const DIR = variable("SEBASTIAN_DIR") ?? path.join(CONFIG_CLAUDE, "sebastian");
+const CUENTA = path.basename(CONFIG_CLAUDE);
+const DIR = variable("SEBASTIAN_DIR") ?? path.join(os.homedir(), ".sebastian");
 const D = {
   sesiones: path.join(DIR, "sesiones"),
   buzon: path.join(DIR, "buzon"),
@@ -98,6 +99,7 @@ function actualizarSesion(p, cambios) {
     cwd: p.cwd || previa.cwd,
     transcript: p.transcript_path || previa.transcript,
     ...previa,
+    cuenta: CUENTA, // la del hook que escribe: una sesión reanudada con otra configuración cambia de cuenta
     ...cambios,
     ts: ahora(),
   };
@@ -109,13 +111,24 @@ function actualizarSesion(p, cambios) {
 function resolver(ref) {
   if (!ref) throw new Error("Falta la sesión (nombre o inicio del id).");
   const todas = sesiones();
-  const exacta = todas.find((s) => s.nombre === ref || s.sid === ref);
-  if (exacta) return exacta;
-  const parecidas = todas.filter((s) => s.sid.startsWith(ref) || (s.nombre || "").includes(ref));
+  const porSid = todas.find((s) => s.sid === ref);
+  if (porSid) return porSid;
+  const exactas = todas.filter((s) => s.nombre === ref);
+  const parecidas = exactas.length
+    ? exactas
+    : todas.filter((s) => s.sid.startsWith(ref) || (s.nombre || "").includes(ref));
   if (parecidas.length === 1) return parecidas[0];
-  if (parecidas.length > 1)
-    throw new Error(`"${ref}" es ambiguo: ${parecidas.map((s) => s.nombre).join(", ")}`);
+  if (parecidas.length > 1) {
+    const cuales = parecidas.map((s) => `${s.nombre} (${nombreCuenta(s.cuenta)}, ${corto(s.sid)})`);
+    throw new Error(`"${ref}" es ambiguo: ${cuales.join(", ")}. Usa el inicio del id.`);
+  }
   throw new Error(`No encuentro la sesión "${ref}". Usa "sebastian lista --todas".`);
+}
+
+// ".claude" es la cuenta personal; ".claude-<nombre>", la de <nombre>.
+function nombreCuenta(cuenta) {
+  if (!cuenta || cuenta === ".claude") return "personal";
+  return cuenta.replace(/^\.claude-/, "");
 }
 
 // ---------- buzón ----------
@@ -456,7 +469,7 @@ function lista(args) {
     if (n) extras.push(`${n} permiso(s)`);
     if (pendienteBuzon(s.sid)) extras.push("mensaje sin entregar");
     console.log(
-      `${s.nombre.padEnd(24)} ${corto(s.sid)}  ${String(s.estado).padEnd(13)} hace ${hace(s.ts).padEnd(4)} ${s.cwd || ""}${extras.length ? `  [${extras.join(", ")}]` : ""}`
+      `${s.nombre.padEnd(24)} ${corto(s.sid)}  ${nombreCuenta(s.cuenta).padEnd(9)} ${String(s.estado).padEnd(13)} hace ${hace(s.ts).padEnd(4)} ${s.cwd || ""}${extras.length ? `  [${extras.join(", ")}]` : ""}`
     );
   }
 }
@@ -538,6 +551,41 @@ function nombrar([ref, nombre]) {
   const s = resolver(ref);
   escribirJSON(fSesion(s.sid), { ...s, nombre });
   console.log(`${corto(s.sid)} ahora se llama ${nombre}.`);
+}
+
+// Trae a ~/.sebastian el estado de las carpetas viejas (~/.claude/sebastian, ~/.claude-*/sebastian).
+// Copia sin borrar nada y sin pisar fichas más nuevas: se puede repetir.
+function migrar() {
+  const home = os.homedir();
+  const viejas = fs
+    .readdirSync(home)
+    .filter((d) => d === ".claude" || d.startsWith(".claude-"))
+    .map((cuenta) => ({ cuenta, dir: path.join(home, cuenta, "sebastian") }))
+    .filter(({ dir }) => path.resolve(dir) !== path.resolve(DIR) && fs.existsSync(dir));
+  if (viejas.length === 0) return console.log("No hay carpetas viejas que migrar.");
+  const ficheros = (dir, ext) =>
+    fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(ext)) : [];
+  for (const { cuenta, dir } of viejas) {
+    let n = 0;
+    for (const f of ficheros(path.join(dir, "sesiones"), ".json")) {
+      const vieja = leerJSON(path.join(dir, "sesiones", f));
+      if (!vieja?.sid) continue;
+      const actual = leerJSON(path.join(D.sesiones, f));
+      if (actual && (actual.ts || "") >= (vieja.ts || "")) continue;
+      escribirJSON(path.join(D.sesiones, f), { ...vieja, cuenta: vieja.cuenta ?? cuenta });
+      n++;
+    }
+    for (const [sub, ext] of [
+      ["noparar", ".json"],
+      ["buzon", ".txt"],
+    ]) {
+      for (const f of ficheros(path.join(dir, sub), ext)) {
+        const destino = path.join(D[sub], f);
+        if (!fs.existsSync(destino)) fs.copyFileSync(path.join(dir, sub, f), destino);
+      }
+    }
+    console.log(`${dir}: ${n} sesión(es) traídas a ${DIR}. La carpeta vieja queda como copia.`);
+  }
 }
 
 function eventos([n = "20"]) {
@@ -637,6 +685,7 @@ const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, 
   sebastian nombre <sesión> <nombre>  pone un nombre fácil a una sesión
   sebastian eventos [n]           últimos eventos
   sebastian vigilar [--todo]      sigue los eventos en directo (para Monitor)
+  sebastian migrar                trae el estado de ~/.claude*/sebastian a ~/.sebastian
 
 <sesión> es un nombre o el inicio de su id.
 Variables: SEBASTIAN_DIR, SEBASTIAN_PERM_ESPERA (seg, ${ESPERA_PERMISO}), SEBASTIAN_MAX_EMPUJONES (${MAX_EMPUJONES}).`;
@@ -656,6 +705,7 @@ async function main() {
     noparar: () => noParar(args),
     nombre: () => nombrar(args),
     eventos: () => eventos(args),
+    migrar,
     vigilar: () => vigilar(args),
   };
   const fn = comandos[cmd];
