@@ -168,10 +168,28 @@ function textoDeContenido(content) {
   };
 }
 
+// Un transcript largo pasa de cientos de MB: para ver cómo va basta con el final.
+const COLA_TRANSCRIPT = 4 * 1024 * 1024;
+
+// Los últimos `bytes` del fichero, empezando en una línea entera.
+function colaFichero(f, bytes) {
+  const fd = fs.openSync(f, "r");
+  try {
+    const { size } = fs.fstatSync(fd);
+    const desde = Math.max(0, size - bytes);
+    const buf = Buffer.alloc(size - desde);
+    fs.readSync(fd, buf, 0, buf.length, desde);
+    const texto = buf.toString("utf8");
+    return desde ? texto.slice(texto.indexOf("\n") + 1) : texto;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function leerTranscript(f) {
   if (!f || !fs.existsSync(f)) return [];
   const out = [];
-  for (const linea of fs.readFileSync(f, "utf8").split("\n")) {
+  for (const linea of colaFichero(f, COLA_TRANSCRIPT).split("\n")) {
     if (!linea.trim()) continue;
     let r;
     try {
@@ -497,7 +515,7 @@ function lista(args) {
 // Una línea por sesión; `yo` marca la sesión que pregunta (desde el MCP).
 function filasLista(todas, yo) {
   const perms = permisosPendientes();
-  const filas = sesiones().filter((s) => todas || (!s.cerrada && Date.now() - new Date(s.ts) < 24 * 3600e3));
+  const filas = todas ? sesiones() : activas();
   return filas.map((s) => {
     const extras = [];
     const np = leerJSON(fNoParar(s.sid));
@@ -507,6 +525,44 @@ function filasLista(todas, yo) {
     if (pendienteBuzon(s.sid)) extras.push("mensaje sin entregar");
     return `${s.nombre.padEnd(24)} ${corto(s.sid)}  ${nombreCuenta(s.cuenta).padEnd(9)} ${String(s.estado).padEnd(13)} hace ${hace(s.ts).padEnd(4)} ${s.cwd || ""}${extras.length ? `  [${extras.join(", ")}]` : ""}${s.sid === yo ? "  ← tú" : ""}`;
   });
+}
+
+// Abiertas y con actividad en las últimas 24 horas.
+const activas = () => sesiones().filter((s) => !s.cerrada && Date.now() - new Date(s.ts) < 24 * 3600e3);
+
+// Estados en los que la sesión espera algo de Mánu.
+const ESPERANDO = new Set(["esperando", "parada", "necesita-te", "pide-permiso"]);
+const ESPERA_LARGA_MIN = 30;
+
+function repaso() {
+  const fichas = activas().map(fichaRepaso);
+  console.log(fichas.length ? fichas.join("\n\n") : "No hay sesiones activas que repasar.");
+}
+
+function fichaRepaso(s) {
+  const t = leerTranscript(s.transcript);
+  const pidio = t.findLast((e) => e.rol === "user" && e.texto && !e.texto.startsWith("<task-notification"))?.texto;
+  const dichos = t.filter((e) => e.rol === "assistant" && e.texto);
+  return [
+    `## ${s.nombre} (${nombreCuenta(s.cuenta)}) · ${s.estado} hace ${hace(s.ts)} · ${s.cwd || ""}`,
+    `Pidió: ${recortar(pidio, 300) || "(nada)"}`,
+    `Último: ${recortar(dichos.at(-1)?.texto, 300) || "(nada)"}`,
+    `Riesgos: ${riesgos(s, dichos).join("; ") || "ninguno a la vista"}`,
+  ].join("\n");
+}
+
+// Solo lo que se puede medir; lo que pide criterio (saltarse una regla) lo juzga Sebastian con `ver`.
+function riesgos(s, dichos) {
+  const r = [];
+  if (ESPERANDO.has(s.estado) && Date.now() - new Date(s.ts) > ESPERA_LARGA_MIN * 60e3)
+    r.push(`espera larga (${s.estado} hace ${hace(s.ts)})`);
+  const ultimos = dichos.slice(-3).map((e) => recortar(e.texto, 200));
+  if (ultimos.length === 3 && new Set(ultimos).size === 1) r.push("bucle: repite el mismo mensaje");
+  if (leerJSON(fNoParar(s.sid))?.empujones >= MAX_EMPUJONES) r.push("ha agotado los empujones de no-parar");
+  const n = permisosPendientes().filter((p) => p.sid === s.sid).length;
+  if (n) r.push(`${n} permiso(s) sin contestar`);
+  if (pendienteBuzon(s.sid)) r.push("mensaje sin entregar");
+  return r;
 }
 
 function ver([ref, n = "12"]) {
@@ -843,6 +899,7 @@ const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, 
                                   con --todas, a cada configuración de ~/.sebastian/config.json
   sebastian desinstalar [--todas] los quita
   sebastian lista [--todas]       sesiones y su estado
+  sebastian repaso                una ficha por sesión activa, con sus riesgos (esperas, bucles…)
   sebastian ver <sesión> [n]      últimos n mensajes de una sesión (12 por defecto)
   sebastian decir <sesión|todas> ...  deja un mensaje tuyo en su buzón (llega "De Mánu")
   sebastian opinar <sesión|todas> ... deja una opinión de Sebastian (no es una orden tuya)
@@ -866,6 +923,7 @@ async function main() {
     instalar: () => instalar(args),
     desinstalar: () => desinstalar(args),
     lista: () => lista(args),
+    repaso,
     ver: () => ver(args),
     decir: () => decir(args),
     opinar: () => opinar(args),
