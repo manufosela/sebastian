@@ -1,0 +1,65 @@
+// sebastian personal / sebastian <nombre>: arranca el Sebastian de cada configuración de Claude.
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+const CLI = fileURLToPath(new URL("../sebastian.mjs", import.meta.url));
+
+describe("sebastian <configuración>", () => {
+  let home;
+  let bin;
+  let salida;
+  beforeEach(() => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), "sebastian-home-"));
+    bin = path.join(home, "bin");
+    salida = path.join(home, "salida.json");
+    fs.mkdirSync(bin);
+    fs.mkdirSync(path.join(home, ".claude"));
+    fs.mkdirSync(path.join(home, ".claude-trabajo"));
+    // Sustituye a claude por un script que apunta sus argumentos y su configuración.
+    const falso = [
+      "#!/usr/bin/env node",
+      "const fs = require('node:fs');",
+      "fs.writeFileSync(process.env.SALIDA, JSON.stringify({",
+      "  args: process.argv.slice(2),",
+      "  rol: process.env.SEBASTIAN_ROL,",
+      "  config: process.env.CLAUDE_CONFIG_DIR ?? null,",
+      "}));",
+    ].join("\n");
+    fs.writeFileSync(path.join(bin, "claude"), falso, { mode: 0o755 });
+  });
+  afterEach(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  const sebastian = (args, env = {}) =>
+    spawnSync(process.execPath, [CLI, ...args], {
+      encoding: "utf8",
+      env: { PATH: `${bin}${path.delimiter}${process.env.PATH}`, HOME: home, SALIDA: salida, ...env },
+    });
+  const leerSalida = () => JSON.parse(fs.readFileSync(salida, "utf8"));
+
+  it("personal arranca Sebastian con ~/.claude aunque el entorno traiga otra configuración", () => {
+    const r = sebastian(["personal"], { CLAUDE_CONFIG_DIR: path.join(home, ".claude-trabajo") });
+    expect(r.status).toBe(0);
+    expect(leerSalida()).toEqual({
+      args: ["--rc", "Sebastian", "arranca"],
+      rol: "supervisor",
+      config: null,
+    });
+  });
+
+  it("otro nombre arranca Sebastian con ~/.claude-<nombre>", () => {
+    const r = sebastian(["trabajo"]);
+    expect(r.status).toBe(0);
+    expect(leerSalida().config).toBe(path.join(home, ".claude-trabajo"));
+  });
+
+  it("si no existe ~/.claude-<nombre> falla sin arrancar nada", () => {
+    const r = sebastian(["noexiste"]);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(".claude-noexiste");
+    expect(fs.existsSync(salida)).toBe(false);
+  });
+});

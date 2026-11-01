@@ -7,6 +7,7 @@
 //   sebastian hook <Evento>        lo llaman los hooks de Claude Code (stdin JSON)
 //   sebastian <comando> [...]      lo usas tú o Sebastian
 
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -601,9 +602,31 @@ async function vigilar(args) {
   }
 }
 
+// ---------- arrancar Sebastian ----------
+
+const ARRANCAR = fileURLToPath(new URL("./supervisor/arrancar.sh", import.meta.url));
+
+// "personal" es ~/.claude; cualquier otro nombre, ~/.claude-<nombre> (la carpeta de sus alias).
+function configDe(nombre) {
+  if (nombre === "personal") return path.join(os.homedir(), ".claude");
+  if (!/^[a-z0-9][a-z0-9_-]*$/i.test(nombre)) return undefined;
+  return path.join(os.homedir(), `.claude-${nombre}`);
+}
+
+function arrancarSebastian(nombre, config, args) {
+  const env = { ...process.env };
+  if (nombre === "personal") delete env.CLAUDE_CONFIG_DIR;
+  else env.CLAUDE_CONFIG_DIR = config;
+  const r = spawnSync("bash", [ARRANCAR, ...args], { stdio: "inherit", env });
+  if (r.error) throw r.error;
+  process.exit(r.status ?? 1);
+}
+
 const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, el supervisor
 
-  sebastian instalar [--ver]      añade los hooks a ~/.claude/settings.json (con copia)
+  sebastian personal              arranca Sebastian con tu configuración de claude (~/.claude)
+  sebastian <nombre>              arranca el Sebastian de ~/.claude-<nombre>
+  sebastian instalar [--ver]     añade los hooks a ~/.claude/settings.json (con copia)
   sebastian desinstalar           los quita
   sebastian lista [--todas]       sesiones y su estado
   sebastian ver <sesión> [n]      últimos n mensajes de una sesión (12 por defecto)
@@ -637,8 +660,13 @@ async function main() {
   };
   const fn = comandos[cmd];
   if (!fn) {
-    console.log(AYUDA);
-    return;
+    if (!cmd) return console.log(AYUDA);
+    const config = configDe(cmd);
+    if (config && fs.existsSync(config)) return arrancarSebastian(cmd, config, args);
+    console.error(
+      `No conozco "${cmd}": no es un comando${config ? ` ni existe ${config}` : ""}.\n\n${AYUDA}`
+    );
+    process.exit(1);
   }
   try {
     await fn();
