@@ -45,13 +45,12 @@ Comprueba que se ha registrado con `sebastian lista`. Pon nombres fáciles: `seb
 Desde cualquier carpeta:
 
 ```bash
-sebastian personal   # el de claude (~/.claude)
-sebastian trabajo    # el de claude-trabajo (~/.claude-trabajo)
+sebastian arrancar
 ```
 
-`sebastian <nombre>` usa la configuración `~/.claude-<nombre>` y falla si no existe.
+Hay un único Sebastian, que ve las sesiones de todas tus configuraciones. Si ya hay uno abierto, avisa y no abre otro.
 
-Abre una sesión normal de Claude en la terminal, conectada también en remoto con el nombre "Sebastian", desde la carpeta `supervisor` (que tiene su CLAUDE.md con el rol) y con esa configuración. Quita la variable de squeezer, se marca para que los hooks no lo vigilen a él mismo y nada más abrirse repasa tus sesiones. Puedes hablarle desde la terminal o desde el móvil.
+Abre una sesión normal de Claude en la terminal, conectada también en remoto con el nombre "Sebastian", desde la carpeta `supervisor` (que tiene su CLAUDE.md con el rol) y con tu configuración personal (`~/.claude`). Quita la variable de squeezer, se marca para que los hooks no lo vigilen a él mismo y nada más abrirse repasa tus sesiones. Puedes hablarle desde la terminal o desde el móvil.
 
 ## Qué le puedes decir
 
@@ -63,7 +62,7 @@ Abre una sesión normal de Claude en la terminal, conectada también en remoto c
 ## Comandos
 
 ```
-sebastian personal | sebastian <nombre>
+sebastian arrancar
 sebastian lista [--todas]
 sebastian ver <sesión> [n]
 sebastian decir <sesión|todas> "texto"

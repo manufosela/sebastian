@@ -683,26 +683,16 @@ async function vigilar(args) {
 
 const ARRANCAR = fileURLToPath(new URL("./supervisor/arrancar.sh", import.meta.url));
 
-// "personal" es ~/.claude; cualquier otro nombre, ~/.claude-<nombre> (la carpeta de sus alias).
-function configDe(nombre) {
-  if (nombre === "personal") return path.join(os.homedir(), ".claude");
-  if (!/^[a-z0-9][a-z0-9_-]*$/i.test(nombre)) return undefined;
-  return path.join(os.homedir(), `.claude-${nombre}`);
-}
-
-function arrancarSebastian(nombre, config, args) {
-  const env = { ...process.env };
-  if (nombre === "personal") delete env.CLAUDE_CONFIG_DIR;
-  else env.CLAUDE_CONFIG_DIR = config;
-  const r = spawnSync("bash", [ARRANCAR, ...args], { stdio: "inherit", env });
+// Un único Sebastian para todas las configuraciones: arrancar.sh pone el candado y la configuración.
+function arrancar(args) {
+  const r = spawnSync("bash", [ARRANCAR, ...args], { stdio: "inherit" });
   if (r.error) throw r.error;
   process.exit(r.status ?? 1);
 }
 
 const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, el supervisor
 
-  sebastian personal              arranca Sebastian con tu configuración de claude (~/.claude)
-  sebastian <nombre>              arranca el Sebastian de ~/.claude-<nombre>
+  sebastian arrancar              abre Sebastian (uno solo, para todas tus configuraciones)
   sebastian instalar [--todas] [--ver]  añade los hooks a ~/.claude/settings.json (con copia);
                                   con --todas, a cada configuración de ~/.sebastian/config.json
   sebastian desinstalar [--todas] los quita
@@ -736,16 +726,13 @@ async function main() {
     nombre: () => nombrar(args),
     eventos: () => eventos(args),
     migrar,
+    arrancar: () => arrancar(args),
     vigilar: () => vigilar(args),
   };
   const fn = comandos[cmd];
   if (!fn) {
     if (!cmd) return console.log(AYUDA);
-    const config = configDe(cmd);
-    if (config && fs.existsSync(config)) return arrancarSebastian(cmd, config, args);
-    console.error(
-      `No conozco "${cmd}": no es un comando${config ? ` ni existe ${config}` : ""}.\n\n${AYUDA}`
-    );
+    console.error(`No conozco "${cmd}": no es un comando.\n\n${AYUDA}`);
     process.exit(1);
   }
   try {
