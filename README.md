@@ -16,11 +16,16 @@ Sebastian es un supervisor: una sesión de Claude Code (en remoto, sin squeezer)
 ```bash
 cd sebastian
 npm install -g .
-sebastian instalar          # añade los hooks a ~/.claude/settings.json; respeta los que ya tienes y deja copia
-CLAUDE_CONFIG_DIR=~/.claude-trabajo sebastian instalar   # lo mismo para otra configuración
+sebastian instalar --todas  # añade los hooks en cada configuración de Claude; respeta los que ya tienes y deja copia
 ```
 
-Para ver qué va a añadir sin tocar nada: `sebastian instalar --ver`. Para quitarlo: `sebastian desinstalar`.
+Las configuraciones salen de `~/.sebastian/config.json`:
+
+```json
+{ "configuraciones": ["~/.claude", "~/.claude-trabajo"] }
+```
+
+Para ver qué va a añadir sin tocar nada: `sebastian instalar --todas --ver`. Para quitarlo: `sebastian desinstalar --todas`. Sin `--todas`, solo la configuración actual (`CLAUDE_CONFIG_DIR` o `~/.claude`).
 
 ## Reiniciar las sesiones activas con resume y squeezer
 
