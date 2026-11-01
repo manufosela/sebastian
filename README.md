@@ -74,7 +74,16 @@ sebastian nombre <sesión> <nombre>
 sebastian eventos [n]
 sebastian vigilar
 sebastian migrar
+sebastian mcp
 ```
+
+## MCP
+
+`sebastian mcp` es un servidor MCP por stdio, sin dependencias, para que las sesiones consulten a Sebastian. Herramientas:
+
+- `sebastian_lista`: las sesiones abiertas de todas las cuentas, con la tuya marcada.
+
+El servidor sabe qué sesión le llama por el registro de Claude Code de su proceso padre (`<config de Claude>/sessions/<pid>.json`), nunca por un parámetro.
 
 ## Ajustes
 
