@@ -82,8 +82,17 @@ sebastian mcp
 `sebastian mcp` es un servidor MCP por stdio, sin dependencias, para que las sesiones consulten a Sebastian. Herramientas:
 
 - `sebastian_lista`: las sesiones abiertas de todas las cuentas, con la tuya marcada.
+- `sebastian_enviar(destino, texto)`: manda un mensaje a otra sesión, de cualquier cuenta. Le llega como «De <tu sesión> (vía Sebastian)» y queda en los eventos.
+- `sebastian_buzon`: recoge tus mensajes pendientes, cada uno con su autor.
 
-El servidor sabe qué sesión le llama por el registro de Claude Code de su proceso padre (`<config de Claude>/sessions/<pid>.json`), nunca por un parámetro.
+El servidor sabe qué sesión le llama por el registro de Claude Code de su proceso padre (`<config de Claude>/sessions/<pid>.json`), nunca por un parámetro: ninguna sesión puede firmar como otra ni como tú. Nada de lo que llega por Sebastian concede permisos.
+
+Para que lo vean las sesiones de cada configuración:
+
+```bash
+claude mcp add --scope user sebastian -- sebastian mcp
+CLAUDE_CONFIG_DIR=~/.claude-trabajo claude mcp add --scope user sebastian -- sebastian mcp
+```
 
 ## Ajustes
 
