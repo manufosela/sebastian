@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const ARRANCAR = fileURLToPath(new URL("../supervisora/arrancar.sh", import.meta.url));
+const ARRANCAR = fileURLToPath(new URL("../supervisor/arrancar.sh", import.meta.url));
 
 // Sustituye a claude por un script que apunta sus argumentos y su entorno.
 describe("arrancar.sh", () => {
@@ -48,9 +48,9 @@ describe("arrancar.sh", () => {
     expect(arrancar(["--verbose"]).args).toEqual(["--rc", "Sebastian", "arranca", "--verbose"]);
   });
 
-  it("se marca como supervisora, quita ANTHROPIC_BASE_URL y arranca en su carpeta", () => {
+  it("se marca como supervisor, quita ANTHROPIC_BASE_URL y arranca en su carpeta", () => {
     const r = arrancar();
-    expect(r.rol).toBe("supervisora");
+    expect(r.rol).toBe("supervisor");
     expect(r.baseUrl).toBeNull();
     expect(r.cwd).toBe(path.dirname(ARRANCAR));
   });

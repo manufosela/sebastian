@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// sebastian: proxy entre una sesión supervisora de Claude Code y el resto de sesiones.
+// sebastian: Sebastian, el supervisor, hace de proxy entre tú y tus sesiones de Claude Code.
 // Sin dependencias. Estado en <config de Claude>/sebastian (o $SEBASTIAN_DIR).
 // La config de Claude es $CLAUDE_CONFIG_DIR o ~/.claude: un Sebastian por cada una.
 //
 // Dos usos:
 //   sebastian hook <Evento>        lo llaman los hooks de Claude Code (stdin JSON)
-//   sebastian <comando> [...]      lo usas tú o la supervisora
+//   sebastian <comando> [...]      lo usas tú o Sebastian
 
 import fs from "node:fs";
 import os from "node:os";
@@ -189,7 +189,7 @@ function salir(obj) {
 }
 
 function textoMensaje(texto) {
-  return `Mensaje de Mánu (a través de la sesión supervisora):\n\n${texto}`;
+  return `Mensaje de Mánu (a través de Sebastian, el supervisor):\n\n${texto}`;
 }
 
 const TEXTO_EMPUJON = [
@@ -212,7 +212,7 @@ async function leerStdin() {
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function hook(nombreEvento) {
-  if (process.env.SEBASTIAN_ROL === "supervisora") salir();
+  if (process.env.SEBASTIAN_ROL === "supervisor") salir();
   const p = await leerStdin();
   if (!p.session_id) salir();
   asegurarDirs();
@@ -566,7 +566,7 @@ function formatearEvento(e) {
   return `${hora} ${e.tipo.toUpperCase()} ${quien}${extra ? ` (${extra})` : ""}${texto ? `: ${texto}` : ""}`;
 }
 
-// Para la herramienta Monitor: cada línea que imprime es un aviso para la supervisora.
+// Para la herramienta Monitor: cada línea que imprime es un aviso para Sebastian.
 async function vigilar(args) {
   const todo = args.includes("--todo");
   let pos = fs.existsSync(D.eventos) ? fs.statSync(D.eventos).size : 0;
@@ -601,7 +601,7 @@ async function vigilar(args) {
   }
 }
 
-const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde una sesión supervisora
+const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, el supervisor
 
   sebastian instalar [--ver]      añade los hooks a ~/.claude/settings.json (con copia)
   sebastian desinstalar           los quita
