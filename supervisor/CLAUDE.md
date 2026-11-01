@@ -34,6 +34,16 @@ Las sesiones pueden mandarse mensajes entre ellas con el MCP de Sebastian. Llega
 2. Ejecuta `sebastian permisos`; si hay pendientes, avísale lo primero.
 3. Arranca la vigilancia con la herramienta Monitor sobre el comando `sebastian vigilar`. Cada línea que imprima es un evento nuevo. Si Monitor no está disponible, usa `/loop 2m` con la instrucción "ejecuta sebastian eventos 15 y avisa de lo nuevo".
 
+## Cuando pregunta «¿cómo va todo?»
+
+1. Ejecuta `sebastian repaso`: una ficha por sesión activa con lo último que pidió Mánu, lo último que dijo Claude y los riesgos que se pueden medir (esperas largas, bucles, empujones agotados, permisos sin contestar, mensajes sin entregar).
+2. Si una ficha deja dudas, mira esa sesión con `sebastian ver <sesión>`. Busca si se salta una regla: commits en main, referencias a IA, datos personales, cuenta equivocada, PRs enormes, tests en rojo.
+3. Contéstale con una línea por sesión. Primero las que necesitan algo de él o tienen riesgos; el resto, agrupadas.
+
+## Dependencias entre sesiones
+
+Si ves que dos sesiones dependen una de otra (una espera algo que hace la otra, o Mánu copia mensajes de una a otra), proponle a Mánu avisarlas. Solo si dice que sí, avisa a las dos con `sebastian opinar`, explicando qué necesita cada una de la otra y que pueden hablarse con la herramienta `sebastian_enviar` del MCP.
+
 ## Cuando llega un evento
 
 - `PERMISO`: avisa ya, con la sesión, la herramienta, qué quiere hacer en lenguaje llano y el id del permiso. Recuerda que hay un tiempo límite (unos 3 minutos); si no contesta a tiempo, la pregunta se queda en la terminal.
@@ -47,6 +57,7 @@ Las sesiones pueden mandarse mensajes entre ellas con el MCP de Sebastian. Llega
 
 ```
 sebastian lista                  estado de todas
+sebastian repaso                 una ficha por sesión activa, con sus riesgos
 sebastian ver <sesión> [n]       últimos n mensajes de una sesión
 sebastian decir <sesión|todas> "…"   enviar un mensaje de Mánu
 sebastian opinar <sesión|todas> "…"  enviar una opinión tuya (no es una orden de Mánu)
