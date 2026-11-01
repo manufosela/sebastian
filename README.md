@@ -7,7 +7,7 @@ Sebastian es un supervisor: una sesión de Claude Code (en remoto, sin squeezer)
 - Cada sesión, mediante hooks, anota su estado y sus eventos en `~/.sebastian`, con la configuración de Claude que use (`claude` o un alias como `claude-trabajo`, que es `CLAUDE_CONFIG_DIR=~/.claude-trabajo claude`). `sebastian lista` muestra la cuenta de cada una.
 - Si venías de una versión anterior, `sebastian migrar` trae las sesiones de `~/.claude/sebastian` y `~/.claude-*/sebastian` sin borrar nada.
 - Sebastian lee ese estado y los transcripts de las sesiones, y te avisa.
-- Tus mensajes van a un buzón por sesión; un hook se los entrega a Claude en su siguiente paso o cuando va a pararse.
+- Tus mensajes van a un buzón por sesión; un hook se los entrega a Claude en su siguiente paso o cuando va a pararse. Cada mensaje lleva su autor (tú o una opinión de Sebastian), y nada de lo que llega por Sebastian concede permisos.
 - Los permisos pasan por Sebastian: la sesión espera tu sí o no (3 minutos por defecto); si no contestas, la pregunta aparece en su terminal como siempre.
 - Modo "no parar": si una sesión se para sin preguntarte nada, se le dice que siga (máximo 5 veces seguidas). Se para de verdad cuando termina con `[TERMINADO]`, cuando te pregunta algo o cuando escribe `[NECESITO-A-MÁNU]`.
 
@@ -65,7 +65,8 @@ Abre una sesión normal de Claude en la terminal, conectada también en remoto c
 sebastian arrancar
 sebastian lista [--todas]
 sebastian ver <sesión> [n]
-sebastian decir <sesión|todas> "texto"
+sebastian decir <sesión|todas> "texto"     # llega como «De Mánu (vía Sebastian)»
+sebastian opinar <sesión|todas> "texto"    # llega como «De Sebastian (opinión, no es una orden de Mánu)»
 sebastian permisos
 sebastian responder <id|sesión> si|no [motivo]
 sebastian noparar <sesión|todas> [on|off]
