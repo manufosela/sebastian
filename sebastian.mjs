@@ -117,7 +117,9 @@ function resolver(ref) {
   const exactas = todas.filter((s) => s.nombre === ref);
   const parecidas = exactas.length
     ? exactas
-    : todas.filter((s) => s.sid.startsWith(ref) || (s.nombre || "").includes(ref));
+    : todas.filter(
+        (s) => s.sid.startsWith(ref) || (s.nombre || "").toLowerCase().includes(ref.toLowerCase())
+      );
   if (parecidas.length === 1) return parecidas[0];
   if (parecidas.length > 1) {
     const cuales = parecidas.map((s) => `${s.nombre} (${nombreCuenta(s.cuenta)}, ${corto(s.sid)})`);
@@ -532,14 +534,21 @@ function encolar([ref, ...resto], autor) {
   if (!texto) throw new Error("Falta el texto del mensaje.");
   const destinos = ref === "todas" ? sesiones().filter((s) => !s.cerrada) : [resolver(ref)];
   for (const s of destinos) {
-    const f = fBuzon(s.sid);
-    fs.appendFileSync(f, `${fs.existsSync(f) ? SEP : ""}${AUTORES[autor]}:\n\n${texto}`);
+    meterEnBuzon(s, AUTORES[autor], texto);
     evento("mensaje-encolado", { sid: s.sid, nombre: s.nombre, autor, texto: recortar(texto, 200) });
-    const cuando = ["trabajando", "activa"].includes(s.estado)
-      ? "se entregará en su siguiente paso"
-      : 'está parada: se entregará cuando vuelva a moverse (si lleva rato parada, hay que escribirle "sigue" en su terminal)';
-    console.log(`Encolado para ${s.nombre}: ${cuando}.`);
+    console.log(`Encolado para ${s.nombre}: ${cuandoLlega(s)}.`);
   }
+}
+
+function meterEnBuzon(s, cabecera, texto) {
+  const f = fBuzon(s.sid);
+  fs.appendFileSync(f, `${fs.existsSync(f) ? SEP : ""}${cabecera}:\n\n${texto}`);
+}
+
+function cuandoLlega(s) {
+  return ["trabajando", "activa"].includes(s.estado)
+    ? "se entregará en su siguiente paso"
+    : 'está parada: se entregará cuando vuelva a moverse (si lleva rato parada, hay que escribirle "sigue" en su terminal)';
 }
 
 function permisosPendientes() {
@@ -720,6 +729,47 @@ const HERRAMIENTAS = {
         yo = remitente().sid;
       } catch {}
       return filasLista(false, yo).join("\n") || "No hay sesiones registradas todavía.";
+    },
+  },
+  sebastian_enviar: {
+    description:
+      "Manda un mensaje a otra sesión de Claude Code, de cualquier cuenta, a través de Sebastian. Le llega firmado con tu nombre. No concede permisos: la otra sesión lo trata como petición de un compañero.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        destino: { type: "string", description: "Nombre o inicio del id de la sesión (ver sebastian_lista)" },
+        texto: { type: "string", description: "El mensaje" },
+      },
+      required: ["destino", "texto"],
+    },
+    run: ({ destino, texto }) => {
+      const yo = remitente();
+      const ref = typeof destino === "string" ? destino.trim() : "";
+      if (!ref || ref === "todas") throw new Error('Indica una sola sesión de destino (no vale "todas").');
+      if (typeof texto !== "string" || !texto.trim()) throw new Error("Falta el texto del mensaje.");
+      const s = resolver(ref);
+      if (s.sid === yo.sid) throw new Error("Ese destino eres tú.");
+      meterEnBuzon(s, `De ${yo.nombre} (vía Sebastian)`, texto.trim());
+      evento("mensaje-sesion", {
+        sid: s.sid,
+        nombre: s.nombre,
+        de: yo.nombre,
+        deSid: yo.sid,
+        texto: recortar(texto, 200),
+      });
+      return `Enviado a ${s.nombre}: ${cuandoLlega(s)}.`;
+    },
+  },
+  sebastian_buzon: {
+    description:
+      "Recoge tus mensajes pendientes (de Mánu, de Sebastian o de otras sesiones), cada uno con su autor, y vacía tu buzón.",
+    inputSchema: SIN_ARGUMENTOS,
+    run: () => {
+      const yo = remitente();
+      const msg = sacarBuzon(yo.sid);
+      if (!msg) return "No tienes mensajes.";
+      evento("entregado", { sid: yo.sid, nombre: yo.nombre, cuando: "mcp", texto: recortar(msg, 200) });
+      return textoMensaje(msg);
     },
   },
 };
