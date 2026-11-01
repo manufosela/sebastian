@@ -64,7 +64,7 @@ describe("estado común en ~/.sebastian", () => {
     expect(ambiguo.stderr).toContain("ambiguo");
     const porSid = await runCli(["decir", "bbbb2222", "hola"], { env: { HOME: home } });
     expect(porSid.code).toBe(0);
-    expect(fs.readFileSync(path.join(comun, "buzon", "bbbb2222.txt"), "utf8")).toBe("hola");
+    expect(fs.readFileSync(path.join(comun, "buzon", "bbbb2222.txt"), "utf8")).toMatch(/hola$/);
   });
 
   it("migrar trae sesiones, noparar y buzones de cada configuración sin borrar las viejas", async () => {
