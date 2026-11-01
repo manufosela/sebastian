@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
 // Una variable vacía cuenta como no definida.
@@ -487,21 +488,23 @@ function desinstalarEn(f) {
 }
 
 function lista(args) {
-  const todas = args.includes("--todas");
+  const filas = filasLista(args.includes("--todas"));
+  console.log(filas.length ? filas.join("\n") : "No hay sesiones registradas todavía.");
+}
+
+// Una línea por sesión; `yo` marca la sesión que pregunta (desde el MCP).
+function filasLista(todas, yo) {
   const perms = permisosPendientes();
   const filas = sesiones().filter((s) => todas || (!s.cerrada && Date.now() - new Date(s.ts) < 24 * 3600e3));
-  if (filas.length === 0) return console.log("No hay sesiones registradas todavía.");
-  for (const s of filas) {
+  return filas.map((s) => {
     const extras = [];
     const np = leerJSON(fNoParar(s.sid));
     if (np?.activo) extras.push(`no-parar${np.empujones ? ` (${np.empujones}/${MAX_EMPUJONES})` : ""}`);
     const n = perms.filter((p) => p.sid === s.sid).length;
     if (n) extras.push(`${n} permiso(s)`);
     if (pendienteBuzon(s.sid)) extras.push("mensaje sin entregar");
-    console.log(
-      `${s.nombre.padEnd(24)} ${corto(s.sid)}  ${nombreCuenta(s.cuenta).padEnd(9)} ${String(s.estado).padEnd(13)} hace ${hace(s.ts).padEnd(4)} ${s.cwd || ""}${extras.length ? `  [${extras.join(", ")}]` : ""}`
-    );
-  }
+    return `${s.nombre.padEnd(24)} ${corto(s.sid)}  ${nombreCuenta(s.cuenta).padEnd(9)} ${String(s.estado).padEnd(13)} hace ${hace(s.ts).padEnd(4)} ${s.cwd || ""}${extras.length ? `  [${extras.join(", ")}]` : ""}${s.sid === yo ? "  ← tú" : ""}`;
+  });
 }
 
 function ver([ref, n = "12"]) {
@@ -689,6 +692,89 @@ async function vigilar(args) {
   }
 }
 
+// ---------- MCP ----------
+// Servidor MCP por stdio (JSON-RPC 2.0, una línea por mensaje), sin dependencias.
+// Claude Code lo lanza como hijo de cada sesión: su proceso padre es la sesión que llama.
+
+const VERSION = leerJSON(path.join(path.dirname(ESTE_FICHERO), "package.json"))?.version ?? "0.0.0";
+
+// Quién llama: lo dice el registro de Claude Code de su proceso padre, nunca un parámetro.
+function remitente() {
+  const f = path.join(CONFIG_CLAUDE, "sessions", `${process.ppid}.json`);
+  const r = leerJSON(f);
+  if (!r?.sessionId) throw new Error(`No sé qué sesión eres: falta ${f}.`);
+  const ficha = leerJSON(fSesion(r.sessionId));
+  return { sid: r.sessionId, nombre: r.name || ficha?.nombre || path.basename(r.cwd || "sesion") };
+}
+
+const SIN_ARGUMENTOS = { type: "object", properties: {}, additionalProperties: false };
+
+const HERRAMIENTAS = {
+  sebastian_lista: {
+    description: "Sesiones de Claude Code abiertas en este equipo, de todas las cuentas, con su estado.",
+    inputSchema: SIN_ARGUMENTOS,
+    run: () => {
+      // La marca "← tú" es solo una ayuda: sin registro de la sesión, la lista sale igual.
+      let yo;
+      try {
+        yo = remitente().sid;
+      } catch {}
+      return filasLista(false, yo).join("\n") || "No hay sesiones registradas todavía.";
+    },
+  },
+};
+
+function atenderMcp({ method, params = {} }) {
+  if (method === "initialize")
+    return {
+      result: {
+        protocolVersion: params.protocolVersion ?? "2025-06-18",
+        capabilities: { tools: {} },
+        serverInfo: { name: "sebastian", version: VERSION },
+      },
+    };
+  if (method === "ping") return { result: {} };
+  if (method === "tools/list") {
+    const tools = Object.entries(HERRAMIENTAS).map(([name, h]) => ({
+      name,
+      description: h.description,
+      inputSchema: h.inputSchema,
+    }));
+    return { result: { tools } };
+  }
+  if (method === "tools/call") {
+    const h = HERRAMIENTAS[params.name];
+    if (!h) return { error: { code: -32602, message: `Herramienta desconocida: ${params.name}` } };
+    try {
+      return { result: { content: [{ type: "text", text: h.run(params.arguments ?? {}) }] } };
+    } catch (e) {
+      return { result: { content: [{ type: "text", text: e.message }], isError: true } };
+    }
+  }
+  return { error: { code: -32601, message: `Método desconocido: ${method}` } };
+}
+
+async function mcp() {
+  const responder = (id, cuerpo) =>
+    process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, ...cuerpo })}\n`);
+  for await (const linea of readline.createInterface({ input: process.stdin })) {
+    if (!linea.trim()) continue;
+    let m;
+    try {
+      m = JSON.parse(linea);
+    } catch {
+      responder(null, { error: { code: -32700, message: "JSON no válido" } });
+      continue;
+    }
+    if (typeof m !== "object" || m === null || Array.isArray(m) || typeof m.method !== "string") {
+      responder(m?.id ?? null, { error: { code: -32600, message: "Petición JSON-RPC no válida" } });
+      continue;
+    }
+    if (m.id === undefined) continue; // notificación: no lleva respuesta
+    responder(m.id, atenderMcp(m));
+  }
+}
+
 // ---------- arrancar Sebastian ----------
 
 const ARRANCAR = fileURLToPath(new URL("./supervisor/arrancar.sh", import.meta.url));
@@ -717,6 +803,7 @@ const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, 
   sebastian eventos [n]           últimos eventos
   sebastian vigilar [--todo]      sigue los eventos en directo (para Monitor)
   sebastian migrar                trae el estado de ~/.claude*/sebastian a ~/.sebastian
+  sebastian mcp                   servidor MCP por stdio para las sesiones (lo lanza Claude Code)
 
 <sesión> es un nombre o el inicio de su id.
 Variables: SEBASTIAN_DIR, SEBASTIAN_PERM_ESPERA (seg, ${ESPERA_PERMISO}), SEBASTIAN_MAX_EMPUJONES (${MAX_EMPUJONES}).`;
@@ -739,6 +826,7 @@ async function main() {
     eventos: () => eventos(args),
     migrar,
     arrancar: () => arrancar(args),
+    mcp,
     vigilar: () => vigilar(args),
   };
   const fn = comandos[cmd];
