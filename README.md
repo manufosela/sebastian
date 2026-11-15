@@ -55,6 +55,7 @@ Abre una sesión normal de Claude en la terminal, conectada también en remoto c
 ## Qué le puedes decir
 
 - "¿Cómo va todo?" / "¿Qué está haciendo la de pagos?" (usa `sebastian repaso`, que señala esperas largas, bucles y permisos sin contestar, y te propone avisar a dos sesiones si ve que dependen una de otra)
+- "¿Qué tengo pendiente?" / "Opción 3" (usa `sebastian pendientes`: una lista numerada de preguntas, comandos que tienes que ejecutar y respuestas sin leer; lo contestado, ejecutado o leído desaparece solo)
 - "Dile a la de api que use la rama develop"
 - "Sí al permiso de pagos" / "No, que no haga push todavía"
 - "Que no paren pagos ni api" / "Que no pare ninguna"
@@ -66,6 +67,7 @@ sebastian arrancar
 sebastian lista [--todas]
 sebastian repaso
 sebastian ver <sesión> [n]
+sebastian pendientes [n|sesión]
 sebastian decir <sesión|todas> "texto"     # llega como «De Mánu (vía Sebastian)»
 sebastian opinar <sesión|todas> "texto"    # llega como «De Sebastian (opinión, no es una orden de Mánu)»
 sebastian permisos
