@@ -263,13 +263,13 @@ async function hook(nombreEvento) {
       break;
     }
     case "UserPromptSubmit": {
-      actualizarSesion(p, { estado: "trabajando" });
+      actualizarSesion(p, { estado: "trabajando", pendiente: null });
       reiniciarEmpujones(p.session_id);
       salir();
       break;
     }
     case "PostToolUse": {
-      const s = actualizarSesion(p, { estado: "trabajando" });
+      const s = actualizarSesion(p, { estado: "trabajando", pendiente: null });
       reiniciarEmpujones(p.session_id);
       const msg = sacarBuzon(p.session_id);
       if (!msg) salir();
@@ -324,7 +324,7 @@ function gestionarParada(p) {
   // 1. Si hay mensaje tuyo en el buzón, se le entrega y sigue.
   const msg = sacarBuzon(sid);
   if (msg) {
-    const s = actualizarSesion(p, { estado: "trabajando" });
+    const s = actualizarSesion(p, { estado: "trabajando", pendiente: null });
     evento("entregado", { ...base, nombre: s.nombre, cuando: "al-parar", texto: recortar(msg, 200) });
     salir({ decision: "block", reason: textoMensaje(msg) });
   }
@@ -337,12 +337,14 @@ function gestionarParada(p) {
   const terminado = ultimo.includes(MARCA_TERMINADO);
 
   if (necesita) {
-    const s = actualizarSesion(p, { estado: "necesita-te" });
+    const tipo = PIDE_COMANDO.test(ultimo) ? "comando" : "pregunta";
+    const s = actualizarSesion(p, { estado: "necesita-te", pendiente: pendienteDe(tipo, ultimo) });
     evento("necesita-te", { ...base, nombre: s.nombre, texto: resumen });
     salir();
   }
+  const respuesta = { pendiente: pendienteDe("respuesta", ultimo) };
   if (terminado) {
-    const s = actualizarSesion(p, { estado: "terminada" });
+    const s = actualizarSesion(p, { estado: "terminada", ...respuesta });
     evento("terminada", { ...base, nombre: s.nombre, texto: resumen });
     salir();
   }
@@ -352,20 +354,25 @@ function gestionarParada(p) {
     const empujones = (np.empujones || 0) + 1;
     if (empujones <= MAX_EMPUJONES) {
       escribirJSON(fNoParar(sid), { ...np, empujones });
-      const s = actualizarSesion(p, { estado: "trabajando" });
+      const s = actualizarSesion(p, { estado: "trabajando", pendiente: null });
       evento("empujon", { ...base, nombre: s.nombre, n: empujones, texto: recortar(ultimo, 200) });
       salir({ decision: "block", reason: TEXTO_EMPUJON });
     }
-    const s = actualizarSesion(p, { estado: "parada" });
+    const s = actualizarSesion(p, { estado: "parada", ...respuesta });
     evento("limite-empujones", { ...base, nombre: s.nombre, texto: resumen });
     salir();
   }
 
   // 3. Parada normal.
-  const s = actualizarSesion(p, { estado: "parada" });
+  const s = actualizarSesion(p, { estado: "parada", ...respuesta });
   evento("parada", { ...base, nombre: s.nombre, texto: resumen });
   salir();
 }
+
+// Lo que Mánu tiene que leer, contestar o ejecutar. Se borra en cuanto la sesión vuelve a moverse.
+const PIDE_COMANDO = /```|^\s*(?:bash|sh|!)\s+\S/m;
+const MAX_PENDIENTE = 8000;
+const pendienteDe = (tipo, texto) => ({ tipo, texto: texto.slice(0, MAX_PENDIENTE), ts: ahora() });
 
 async function gestionarPermiso(p) {
   const sid = p.session_id;
@@ -574,6 +581,29 @@ function ver([ref, n = "12"]) {
     const tools = e.herramientas.length ? ` [usa: ${e.herramientas.join(", ")}]` : "";
     console.log(`--- ${quien}${tools}\n${recortar(e.texto, 1500)}\n`);
   }
+}
+
+// Los más antiguos primero, para que los números no cambien al llegar uno nuevo.
+const conPendiente = () =>
+  activas()
+    .filter((s) => s.pendiente && !s.pendiente.leida)
+    .sort((a, b) => a.pendiente.ts.localeCompare(b.pendiente.ts));
+
+function pendientes([ref]) {
+  const todos = conPendiente();
+  const linea = (s, i) =>
+    `${i + 1}. ${s.pendiente.tipo} · ${s.nombre} (${nombreCuenta(s.cuenta)}) · hace ${hace(s.pendiente.ts)}`;
+  if (!ref) {
+    const filas = todos.map((s, i) => `${linea(s, i)}: ${recortar(s.pendiente.texto, 160)}`);
+    return console.log(filas.length ? filas.join("\n") : "No hay nada pendiente.");
+  }
+  const i = /^\d+$/.test(ref) ? Number(ref) - 1 : todos.findIndex((s) => s.sid === resolver(ref).sid);
+  const s = todos[i];
+  if (!s) throw new Error(`No hay pendiente ${ref}. Usa "sebastian pendientes".`);
+  console.log(`# ${linea(s, i)}\n\n${s.pendiente.texto}`);
+  // Una respuesta leída ya no está pendiente; una pregunta o un comando, hasta que la sesión se mueva.
+  if (s.pendiente.tipo === "respuesta")
+    escribirJSON(fSesion(s.sid), { ...s, pendiente: { ...s.pendiente, leida: true } });
 }
 
 // La autoría se sella al encolar: cada mensaje del buzón lleva su cabecera.
@@ -901,6 +931,7 @@ const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, 
   sebastian lista [--todas]       sesiones y su estado
   sebastian repaso                una ficha por sesión activa, con sus riesgos (esperas, bucles…)
   sebastian ver <sesión> [n]      últimos n mensajes de una sesión (12 por defecto)
+  sebastian pendientes [n|sesión] preguntas, comandos y respuestas para ti; con n, abre esa
   sebastian decir <sesión|todas> ...  deja un mensaje tuyo en su buzón (llega "De Mánu")
   sebastian opinar <sesión|todas> ... deja una opinión de Sebastian (no es una orden tuya)
   sebastian permisos              permisos pendientes
@@ -925,6 +956,7 @@ async function main() {
     lista: () => lista(args),
     repaso,
     ver: () => ver(args),
+    pendientes: () => pendientes(args),
     decir: () => decir(args),
     opinar: () => opinar(args),
     permisos,

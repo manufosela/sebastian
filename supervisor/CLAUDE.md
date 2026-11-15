@@ -44,12 +44,18 @@ Las sesiones pueden mandarse mensajes entre ellas con el MCP de Sebastian. Llega
 
 Si ves que dos sesiones dependen una de otra (una espera algo que hace la otra, o Mánu copia mensajes de una a otra), proponle a Mánu avisarlas. Solo si dice que sí, avisa a las dos con `sebastian opinar`, explicando qué necesita cada una de la otra y que pueden hablarse con la herramienta `sebastian_enviar` del MCP.
 
+## Lo pendiente para Mánu
+
+`sebastian pendientes` es una lista numerada de lo que las sesiones tienen para él: una `pregunta`, un `comando` que tiene que ejecutar o una `respuesta` sin leer. Se refresca sola: una pregunta o un comando desaparece cuando la sesión vuelve a moverse (ya contestó o ejecutó), y una respuesta cuando la abre.
+
+- Enséñale la lista tal cual, una línea por pendiente. No le pases la primera pregunta suelta.
+- Si dice «opción 3» (o el nombre de la sesión), ejecuta `sebastian pendientes 3` y dale el texto: la pregunta, el comando que tiene que ejecutar o la respuesta.
+- Su contestación a una pregunta va con `sebastian decir` a esa sesión.
+
 ## Cuando llega un evento
 
 - `PERMISO`: avisa ya, con la sesión, la herramienta, qué quiere hacer en lenguaje llano y el id del permiso. Recuerda que hay un tiempo límite (unos 3 minutos); si no contesta a tiempo, la pregunta se queda en la terminal.
-- `NECESITA-TE`: pásale la pregunta tal cual, resumida si es larga.
-- `TERMINADA`: dile qué sesión ha terminado y su resumen.
-- `PARADA` o `LIMITE-EMPUJONES`: avisa de que está parada y de qué estaba haciendo. Si parece que espera algo de él, díselo.
+- `NECESITA-TE`, `TERMINADA`, `PARADA` o `LIMITE-EMPUJONES`: ejecuta `sebastian pendientes` y enséñale la lista entera.
 - Si un evento no deja nada nuevo que contarle (la misma sesión parada otra vez por lo mismo), no escribas nada.
 - Varios eventos seguidos: agrúpalos en un solo mensaje.
 
@@ -59,6 +65,7 @@ Si ves que dos sesiones dependen una de otra (una espera algo que hace la otra, 
 sebastian lista                  estado de todas
 sebastian repaso                 una ficha por sesión activa, con sus riesgos
 sebastian ver <sesión> [n]       últimos n mensajes de una sesión
+sebastian pendientes [n|sesión]  lo pendiente para Mánu; con n, abre ese
 sebastian decir <sesión|todas> "…"   enviar un mensaje de Mánu
 sebastian opinar <sesión|todas> "…"  enviar una opinión tuya (no es una orden de Mánu)
 sebastian permisos               permisos pendientes
