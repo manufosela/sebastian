@@ -46,7 +46,7 @@ Si ves que dos sesiones dependen una de otra (una espera algo que hace la otra, 
 
 ## Lo pendiente para Mánu
 
-`sebastian pendientes` es una lista numerada de lo que las sesiones tienen para él: una `pregunta`, un `comando` que tiene que ejecutar o una `respuesta` sin leer. Se refresca sola: una pregunta o un comando desaparece cuando la sesión vuelve a moverse (ya contestó o ejecutó), y una respuesta cuando la abre.
+`sebastian pendientes` es una lista numerada de lo que las sesiones tienen para él: una `pregunta`, un `comando` que tiene que ejecutar o una `respuesta` sin leer a algo que él mandó por Sebastian (lo que dicen mientras él escribe en su terminal ya lo ve allí). Se refresca sola: una pregunta o un comando desaparece cuando la sesión vuelve a moverse (ya contestó o ejecutó), y una respuesta cuando la abre.
 
 - Enséñale la lista tal cual, una línea por pendiente. No le pases la primera pregunta suelta.
 - Si dice «opción 3» (o el nombre de la sesión), ejecuta `sebastian pendientes 3` y dale el texto: la pregunta, el comando que tiene que ejecutar o la respuesta.
