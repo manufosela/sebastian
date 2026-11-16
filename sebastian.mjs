@@ -589,21 +589,71 @@ const conPendiente = () =>
     .filter((s) => s.pendiente && !s.pendiente.leida)
     .sort((a, b) => a.pendiente.ts.localeCompare(b.pendiente.ts));
 
-function pendientes([ref]) {
-  const todos = conPendiente();
-  const linea = (s, i) =>
-    `${i + 1}. ${s.pendiente.tipo} · ${s.nombre} (${nombreCuenta(s.cuenta)}) · hace ${hace(s.pendiente.ts)}`;
-  if (!ref) {
-    const filas = todos.map((s, i) => `${linea(s, i)}: ${recortar(s.pendiente.texto, 160)}`);
-    return console.log(filas.length ? filas.join("\n") : "No hay nada pendiente.");
-  }
+const lineaPendiente = (s, i) =>
+  `${i + 1}. ${s.pendiente.tipo} · ${s.nombre} (${nombreCuenta(s.cuenta)}) · hace ${hace(s.pendiente.ts)}`;
+
+function listaPendientes(todos) {
+  const filas = todos.map((s, i) => `${lineaPendiente(s, i)}: ${recortar(s.pendiente.texto, 160)}`);
+  return filas.length ? filas.join("\n") : "No hay nada pendiente.";
+}
+
+// Devuelve el pendiente por número o sesión, y su texto completo.
+function abrirPendiente(todos, ref) {
   const i = /^\d+$/.test(ref) ? Number(ref) - 1 : todos.findIndex((s) => s.sid === resolver(ref).sid);
   const s = todos[i];
   if (!s) throw new Error(`No hay pendiente ${ref}. Usa "sebastian pendientes".`);
-  console.log(`# ${linea(s, i)}\n\n${s.pendiente.texto}`);
   // Una respuesta leída ya no está pendiente; una pregunta o un comando, hasta que la sesión se mueva.
   if (s.pendiente.tipo === "respuesta")
     escribirJSON(fSesion(s.sid), { ...s, pendiente: { ...s.pendiente, leida: true } });
+  return { s, texto: `# ${lineaPendiente(s, i)}\n\n${s.pendiente.texto}` };
+}
+
+function pendientes([ref]) {
+  const todos = conPendiente();
+  console.log(ref ? abrirPendiente(todos, ref).texto : listaPendientes(todos));
+}
+
+const LIMPIAR = "\x1b[2J\x1b[H";
+const AYUDA_LISTA = "Número y Enter para abrir, q para salir > ";
+
+// App de terminal sin Claude: la lista se redibuja sola; abierto un pendiente, la línea siguiente
+// es tu respuesta (Enter vacío vuelve).
+function panel() {
+  const tty = process.stdout.isTTY;
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: tty });
+  let abierto = null;
+  let pintado = "";
+  const pintar = (aviso = "") => {
+    pintado = listaPendientes(conPendiente());
+    process.stdout.write(`${tty ? LIMPIAR : "\n"}${pintado}\n\n${aviso}`);
+    rl.setPrompt(AYUDA_LISTA);
+    rl.prompt(true);
+  };
+  const refresco = setInterval(() => {
+    if (!abierto && listaPendientes(conPendiente()) !== pintado) pintar();
+  }, 2000);
+  rl.on("line", (entrada) => {
+    const linea = entrada.trim();
+    if (abierto) {
+      const aviso = linea ? `Enviado a ${abierto.nombre}: ${cuandoLlega(abierto)}.\n` : "";
+      if (linea) dejarMensaje(abierto, "manu", linea);
+      abierto = null;
+      return pintar(aviso);
+    }
+    if (linea === "q") return rl.close();
+    if (!linea) return pintar();
+    try {
+      const { s, texto } = abrirPendiente(conPendiente(), linea);
+      abierto = s;
+      process.stdout.write(`${tty ? LIMPIAR : "\n"}${texto}\n\n`);
+      rl.setPrompt(`Respuesta para ${s.nombre} (Enter vacío vuelve) > `);
+      rl.prompt();
+    } catch (e) {
+      pintar(`${e.message}\n`);
+    }
+  });
+  rl.on("close", () => clearInterval(refresco));
+  pintar();
 }
 
 // La autoría se sella al encolar: cada mensaje del buzón lleva su cabecera.
@@ -620,10 +670,14 @@ function encolar([ref, ...resto], autor) {
   if (!texto) throw new Error("Falta el texto del mensaje.");
   const destinos = ref === "todas" ? sesiones().filter((s) => !s.cerrada) : [resolver(ref)];
   for (const s of destinos) {
-    meterEnBuzon(s, AUTORES[autor], texto);
-    evento("mensaje-encolado", { sid: s.sid, nombre: s.nombre, autor, texto: recortar(texto, 200) });
+    dejarMensaje(s, autor, texto);
     console.log(`Encolado para ${s.nombre}: ${cuandoLlega(s)}.`);
   }
+}
+
+function dejarMensaje(s, autor, texto) {
+  meterEnBuzon(s, AUTORES[autor], texto);
+  evento("mensaje-encolado", { sid: s.sid, nombre: s.nombre, autor, texto: recortar(texto, 200) });
 }
 
 function meterEnBuzon(s, cabecera, texto) {
@@ -932,6 +986,7 @@ const AYUDA = `sebastian: gestiona tus sesiones de Claude Code desde Sebastian, 
   sebastian repaso                una ficha por sesión activa, con sus riesgos (esperas, bucles…)
   sebastian ver <sesión> [n]      últimos n mensajes de una sesión (12 por defecto)
   sebastian pendientes [n|sesión] preguntas, comandos y respuestas para ti; con n, abre esa
+  sebastian panel                 app de terminal con los pendientes: se refresca y contestas desde ahí
   sebastian decir <sesión|todas> ...  deja un mensaje tuyo en su buzón (llega "De Mánu")
   sebastian opinar <sesión|todas> ... deja una opinión de Sebastian (no es una orden tuya)
   sebastian permisos              permisos pendientes
@@ -957,6 +1012,7 @@ async function main() {
     repaso,
     ver: () => ver(args),
     pendientes: () => pendientes(args),
+    panel,
     decir: () => decir(args),
     opinar: () => opinar(args),
     permisos,
