@@ -263,15 +263,16 @@ async function hook(nombreEvento) {
       break;
     }
     case "UserPromptSubmit": {
-      actualizarSesion(p, { estado: "trabajando", pendiente: null });
+      // Mánu está en la terminal: lo que conteste la sesión ya lo ve allí.
+      actualizarSesion(p, { estado: "trabajando", pendiente: null, esperaRespuesta: false });
       reiniciarEmpujones(p.session_id);
       salir();
       break;
     }
     case "PostToolUse": {
-      const s = actualizarSesion(p, { estado: "trabajando", pendiente: null });
       reiniciarEmpujones(p.session_id);
       const msg = sacarBuzon(p.session_id);
+      const s = actualizarSesion(p, { estado: "trabajando", pendiente: null, ...esperaDeManu(msg) });
       if (!msg) salir();
       evento("entregado", { ...base, nombre: s.nombre, cuando: "trabajando", texto: recortar(msg, 200) });
       salir({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: textoMensaje(msg) } });
@@ -324,7 +325,7 @@ function gestionarParada(p) {
   // 1. Si hay mensaje tuyo en el buzón, se le entrega y sigue.
   const msg = sacarBuzon(sid);
   if (msg) {
-    const s = actualizarSesion(p, { estado: "trabajando", pendiente: null });
+    const s = actualizarSesion(p, { estado: "trabajando", pendiente: null, ...esperaDeManu(msg) });
     evento("entregado", { ...base, nombre: s.nombre, cuando: "al-parar", texto: recortar(msg, 200) });
     salir({ decision: "block", reason: textoMensaje(msg) });
   }
@@ -338,11 +339,18 @@ function gestionarParada(p) {
 
   if (necesita) {
     const tipo = PIDE_COMANDO.test(ultimo) ? "comando" : "pregunta";
-    const s = actualizarSesion(p, { estado: "necesita-te", pendiente: pendienteDe(tipo, ultimo) });
+    const s = actualizarSesion(p, {
+      estado: "necesita-te",
+      pendiente: pendienteDe(tipo, ultimo),
+      esperaRespuesta: false,
+    });
     evento("necesita-te", { ...base, nombre: s.nombre, texto: resumen });
     salir();
   }
-  const respuesta = { pendiente: pendienteDe("respuesta", ultimo) };
+  // Solo es una respuesta pendiente si contesta a algo que Mánu mandó por Sebastian.
+  const respuesta = leerJSON(fSesion(sid), {}).esperaRespuesta
+    ? { pendiente: pendienteDe("respuesta", ultimo), esperaRespuesta: false }
+    : {};
   if (terminado) {
     const s = actualizarSesion(p, { estado: "terminada", ...respuesta });
     evento("terminada", { ...base, nombre: s.nombre, texto: resumen });
@@ -373,6 +381,11 @@ function gestionarParada(p) {
 const PIDE_COMANDO = /```|^\s*(?:bash|sh|!)\s+\S/m;
 const MAX_PENDIENTE = 8000;
 const pendienteDe = (tipo, texto) => ({ tipo, texto: texto.slice(0, MAX_PENDIENTE), ts: ahora() });
+// Un mensaje de Mánu entregado deja la sesión esperando a que él lea lo que conteste.
+// Cada trozo del buzón empieza por su cabecera sellada (meterEnBuzon escapa SEP en el texto),
+// así que una cita en el texto no se hace pasar por Mánu.
+const esperaDeManu = (msg) =>
+  msg?.split(SEP).some((m) => m.startsWith(`${AUTORES.manu}:`)) ? { esperaRespuesta: true } : {};
 
 async function gestionarPermiso(p) {
   const sid = p.session_id;
@@ -682,7 +695,14 @@ function dejarMensaje(s, autor, texto) {
 
 function meterEnBuzon(s, cabecera, texto) {
   const f = fBuzon(s.sid);
-  fs.appendFileSync(f, `${fs.existsSync(f) ? SEP : ""}${cabecera}:\n\n${texto}`);
+  fs.appendFileSync(f, `${fs.existsSync(f) ? SEP : ""}${cabecera}:\n\n${sinSeparador(texto)}`);
+}
+
+// El separador solo lo escribe meterEnBuzon: así cada trozo empieza por su cabecera.
+function sinSeparador(texto) {
+  let t = texto;
+  while (t.includes(SEP)) t = t.replaceAll(SEP, "\n\n- - -\n\n");
+  return t;
 }
 
 function cuandoLlega(s) {

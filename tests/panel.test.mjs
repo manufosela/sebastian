@@ -34,6 +34,8 @@ describe("sebastian panel", () => {
   });
 
   it("abrir una respuesta la deja leída", async () => {
+    await runCli(["decir", "s1", "¿mergeas?"], { env: entorno.env });
+    await runHook("PostToolUse", pagos, { env: entorno.env });
     await parar("Hecho: PR mergeada.");
     expect((await panel("1\n\nq\n")).stdout).toContain("Hecho: PR mergeada.");
     expect((await runCli(["pendientes"], { env: entorno.env })).stdout).toContain("No hay nada pendiente.");

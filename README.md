@@ -58,12 +58,12 @@ Abre una sesión normal de Claude en la terminal, conectada también en remoto c
 sebastian panel
 ```
 
-Una app de terminal con tus pendientes (preguntas, comandos que tienes que ejecutar y respuestas sin leer), que se refresca sola. Escribe un número y Enter para abrir uno; la línea siguiente es tu respuesta, que va a su buzón como «De Mánu (vía Sebastian)» (Enter vacío vuelve a la lista). `q` sale. No gasta tokens.
+Una app de terminal con tus pendientes (preguntas, comandos que tienes que ejecutar y respuestas sin leer a lo que mandaste por Sebastian), que se refresca sola. Lo que una sesión dice mientras escribes en su terminal no aparece: ya lo ves allí. Escribe un número y Enter para abrir uno; la línea siguiente es tu respuesta, que va a su buzón como «De Mánu (vía Sebastian)» (Enter vacío vuelve a la lista). `q` sale. No gasta tokens.
 
 ## Qué le puedes decir
 
 - "¿Cómo va todo?" / "¿Qué está haciendo la de pagos?" (usa `sebastian repaso`, que señala esperas largas, bucles y permisos sin contestar, y te propone avisar a dos sesiones si ve que dependen una de otra)
-- "¿Qué tengo pendiente?" / "Opción 3" (usa `sebastian pendientes`: una lista numerada de preguntas, comandos que tienes que ejecutar y respuestas sin leer; lo contestado, ejecutado o leído desaparece solo)
+- "¿Qué tengo pendiente?" / "Opción 3" (usa `sebastian pendientes`: una lista numerada de preguntas, comandos que tienes que ejecutar y respuestas sin leer a lo que mandaste por Sebastian; lo contestado, ejecutado o leído desaparece solo)
 - "Dile a la de api que use la rama develop"
 - "Sí al permiso de pagos" / "No, que no haga push todavía"
 - "Que no paren pagos ni api" / "Que no pare ninguna"
