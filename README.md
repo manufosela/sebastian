@@ -52,6 +52,14 @@ Hay un único Sebastian, que ve las sesiones de todas tus configuraciones. Si ya
 
 Abre una sesión normal de Claude en la terminal, conectada también en remoto con el nombre "Sebastian", desde la carpeta `supervisor` (que tiene su CLAUDE.md con el rol) y con tu configuración personal (`~/.claude`). Quita la variable de squeezer, se marca para que los hooks no lo vigilen a él mismo y nada más abrirse repasa tus sesiones. Puedes hablarle desde la terminal o desde el móvil.
 
+## Panel, sin Claude
+
+```bash
+sebastian panel
+```
+
+Una app de terminal con tus pendientes (preguntas, comandos que tienes que ejecutar y respuestas sin leer), que se refresca sola. Escribe un número y Enter para abrir uno; la línea siguiente es tu respuesta, que va a su buzón como «De Mánu (vía Sebastian)» (Enter vacío vuelve a la lista). `q` sale. No gasta tokens.
+
 ## Qué le puedes decir
 
 - "¿Cómo va todo?" / "¿Qué está haciendo la de pagos?" (usa `sebastian repaso`, que señala esperas largas, bucles y permisos sin contestar, y te propone avisar a dos sesiones si ve que dependen una de otra)
@@ -68,6 +76,7 @@ sebastian lista [--todas]
 sebastian repaso
 sebastian ver <sesión> [n]
 sebastian pendientes [n|sesión]
+sebastian panel
 sebastian decir <sesión|todas> "texto"     # llega como «De Mánu (vía Sebastian)»
 sebastian opinar <sesión|todas> "texto"    # llega como «De Sebastian (opinión, no es una orden de Mánu)»
 sebastian permisos
