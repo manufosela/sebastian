@@ -618,16 +618,61 @@ function abrirPendiente(todos, ref) {
   // Una respuesta leída ya no está pendiente; una pregunta o un comando, hasta que la sesión se mueva.
   if (s.pendiente.tipo === "respuesta")
     escribirJSON(fSesion(s.sid), { ...s, pendiente: { ...s.pendiente, leida: true } });
-  return { s, texto: `# ${lineaPendiente(s, i)}\n\n${s.pendiente.texto}` };
+  return { s, i };
 }
 
 function pendientes([ref]) {
   const todos = conPendiente();
-  console.log(ref ? abrirPendiente(todos, ref).texto : listaPendientes(todos));
+  if (!ref) return console.log(listaPendientes(todos));
+  const { s, i } = abrirPendiente(todos, ref);
+  console.log(`# ${lineaPendiente(s, i)}\n\n${s.pendiente.texto}`);
 }
 
+// ---------- panel ----------
+
 const LIMPIAR = "\x1b[2J\x1b[H";
-const AYUDA_LISTA = "Número y Enter para abrir, q para salir > ";
+const CON_COLOR = process.stdout.isTTY && !process.env.NO_COLOR;
+const estilo = (codigo) => (t) => (CON_COLOR ? `\x1b[${codigo}m${t}\x1b[0m` : t);
+const negrita = estilo("1");
+const tenue = estilo("2");
+const COLOR_TIPO = { pregunta: estilo("1;33"), comando: estilo("1;36"), respuesta: estilo("1;32") };
+const ancho = () => Math.max(40, Math.min(process.stdout.columns || 100, 120) - 4);
+const raya = () => tenue("─".repeat(ancho()));
+const AYUDA_LISTA = `${tenue("número + Enter abre · q sale")} > `;
+
+// Parte el texto en líneas de un ancho; si sobran, la última acaba en «…».
+function envolver(texto, max, lineas) {
+  const trozo = new RegExp(`.{1,${max}}`, "gu"); // una palabra más larga que la línea se parte
+  const palabras = recortar(texto, MAX_PENDIENTE)
+    .split(" ")
+    .flatMap((p) => p.match(trozo) ?? []);
+  const largo = (t) => [...t].length; // por puntos de código, como parte la expresión
+  const out = [];
+  for (const p of palabras) {
+    if (out.length && largo(out.at(-1)) + largo(p) + 1 <= max) out[out.length - 1] += ` ${p}`;
+    else out.push(p);
+  }
+  if (out.length <= lineas) return out;
+  const ultima = [...out[lineas - 1]].slice(0, max - 1).join("");
+  return [...out.slice(0, lineas - 1), `${ultima}…`];
+}
+
+function cabeceraPanel(s, i) {
+  const tipo = COLOR_TIPO[s.pendiente.tipo](s.pendiente.tipo.toUpperCase().padEnd(9));
+  const donde = tenue(`· ${nombreCuenta(s.cuenta)} · hace ${hace(s.pendiente.ts)}`);
+  return `${negrita(String(i + 1).padStart(2))}  ${tipo} ${negrita(s.nombre)} ${donde}`;
+}
+
+function pantallaLista(todos) {
+  const titulo = `${negrita("Sebastian · pendientes")}  ${tenue(String(todos.length))}`;
+  const tarjetas = todos.map((s, i) => {
+    const resumen = envolver(s.pendiente.texto, ancho() - 4, 2).map((l) => `    ${tenue(l)}`);
+    return [cabeceraPanel(s, i), ...resumen].join("\n");
+  });
+  return `${titulo}\n${raya()}\n\n${tarjetas.join("\n\n") || tenue("Nada pendiente.")}\n\n${raya()}`;
+}
+
+const pantallaPendiente = (s, i) => `${cabeceraPanel(s, i)}\n${raya()}\n\n${s.pendiente.texto}\n\n${raya()}`;
 
 // App de terminal sin Claude: la lista se redibuja sola; abierto un pendiente, la línea siguiente
 // es tu respuesta (Enter vacío vuelve).
@@ -637,18 +682,20 @@ function panel() {
   let abierto = null;
   let pintado = "";
   const pintar = (aviso = "") => {
-    pintado = listaPendientes(conPendiente());
-    process.stdout.write(`${tty ? LIMPIAR : "\n"}${pintado}\n\n${aviso}`);
+    pintado = pantallaLista(conPendiente());
+    process.stdout.write(`${tty ? LIMPIAR : "\n"}${pintado}\n${aviso}\n`);
     rl.setPrompt(AYUDA_LISTA);
     rl.prompt(true);
   };
   const refresco = setInterval(() => {
-    if (!abierto && listaPendientes(conPendiente()) !== pintado) pintar();
+    if (!abierto && pantallaLista(conPendiente()) !== pintado) pintar();
   }, 2000);
   rl.on("line", (entrada) => {
     const linea = entrada.trim();
     if (abierto) {
-      const aviso = linea ? `Enviado a ${abierto.nombre}: ${cuandoLlega(abierto)}.\n` : "";
+      const aviso = linea
+        ? COLOR_TIPO.respuesta(`✓ Enviado a ${abierto.nombre}: ${cuandoLlega(abierto)}.`)
+        : "";
       if (linea) dejarMensaje(abierto, "manu", linea);
       abierto = null;
       return pintar(aviso);
@@ -656,13 +703,14 @@ function panel() {
     if (linea === "q") return rl.close();
     if (!linea) return pintar();
     try {
-      const { s, texto } = abrirPendiente(conPendiente(), linea);
+      const { s, i } = abrirPendiente(conPendiente(), linea);
       abierto = s;
-      process.stdout.write(`${tty ? LIMPIAR : "\n"}${texto}\n\n`);
-      rl.setPrompt(`Respuesta para ${s.nombre} (Enter vacío vuelve) > `);
+      process.stdout.write(`${tty ? LIMPIAR : "\n"}${pantallaPendiente(s, i)}\n\n`);
+      const para = negrita(`Respuesta para ${s.nombre}`);
+      rl.setPrompt(`${para} ${tenue("(Enter vacío vuelve)")} > `);
       rl.prompt();
     } catch (e) {
-      pintar(`${e.message}\n`);
+      pintar(COLOR_TIPO.pregunta(e.message));
     }
   });
   rl.on("close", () => clearInterval(refresco));
