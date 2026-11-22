@@ -334,7 +334,7 @@ function gestionarParada(p) {
   const resumen = recortar(ultimo, 600);
   const np = leerJSON(fNoParar(sid));
 
-  const necesita = ultimo.includes(MARCA_NECESITA) || /\?\s*$/.test(ultimo.trim());
+  const necesita = esperaAManu(ultimo);
   const terminado = ultimo.includes(MARCA_TERMINADO);
 
   if (necesita) {
@@ -375,6 +375,26 @@ function gestionarParada(p) {
   const s = actualizarSesion(p, { estado: "parada", ...respuesta });
   evento("parada", { ...base, nombre: s.nombre, texto: resumen });
   salir();
+}
+
+// Las sesiones cierran con «Me paro por…»: esa frase no tapa el «?» de antes, y cuenta como
+// espera de Mánu cuando se dirige a él («tu respuesta», «a que subas», «que me digas»).
+const ME_PARO = /(?<!\p{L})Me paro (?:por|porque)(?!\p{L})[^\n]*/gu;
+// Lista cerrada: deducir el verbo por la terminación confunde «que los checks» con «que selles».
+const VERBOS_A_MANU =
+  "abras|apruebes|confirmes|contestes|decidas|digas|ejecutes|elijas|escribas|hagas|lances|mires|" +
+  "pegues|pruebes|recorras|reinicies|respondas|revises|selles|subas|teclees|valides|vuelvas";
+const SEGUNDA_PERSONA = new RegExp(
+  String.raw`(?<!\p{L})(?:tus?|que (?:me |le |lo |la |nos )?(?:${VERBOS_A_MANU}))(?!\p{L})`,
+  "iu"
+);
+const pregunta = (texto) => /\?\s*$/.test(texto.trim());
+const seDirigeAManu = (frase) => SEGUNDA_PERSONA.test(frase);
+
+function esperaAManu(texto) {
+  if (texto.includes(MARCA_NECESITA) || pregunta(texto)) return true;
+  const meParo = [...texto.matchAll(ME_PARO)].at(-1);
+  return Boolean(meParo) && (pregunta(texto.slice(0, meParo.index)) || seDirigeAManu(meParo[0]));
 }
 
 // Lo que Mánu tiene que leer, contestar o ejecutar. Se borra en cuanto la sesión vuelve a moverse.
